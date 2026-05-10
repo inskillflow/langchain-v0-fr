@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    image: langchain-course-hello-world:latest
+    container_name: langchain-hello-world
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/.venv
+    stdin_open: true
+    tty: true
