@@ -414,7 +414,41 @@ docker ps -a     # il est en status "Exited (0)"
 > [!NOTE]
 > `docker exec` fonctionne **uniquement sur un conteneur en cours d'exécution**. Pour un conteneur arrêté, c'est `docker start` qu'il faut.
 
-### 10b.2 Solution recommandée : `docker compose run` (override du CMD)
+### 10b.2 Solution alternative : utiliser un terminal interactif comme processus de garde
+
+> [!IMPORTANT]
+> `docker exec` exige qu'au moins **un processus tourne déjà** dans le conteneur (le PID 1 doit être vivant). Si le PID 1 meurt, le conteneur s'arrête immédiatement et `docker exec` n'a plus rien où s'attacher.
+
+L'idée : démarrer le conteneur avec un **shell interactif** comme PID 1 (au lieu de `python main.py` qui se termine en quelques secondes). Tant que ce shell reste ouvert dans ton terminal, le conteneur reste vivant, et tu peux ouvrir d'autres shells dedans depuis un autre terminal avec `docker exec`.
+
+**Terminal 1 — démarre le conteneur avec `bash` en PID 1 :**
+
+```bash
+docker compose run --name hello-openai -it app bash
+```
+
+Tu obtiens un prompt `root@xxx:/app#`. **Laisse ce terminal ouvert** : ce bash est le processus de garde.
+
+**Terminal 2 — entre dans le même conteneur depuis une autre fenêtre / onglet :**
+
+```bash
+docker exec -it hello-openai bash
+```
+
+Maintenant tu as **deux shells** dans le même conteneur : le shell de garde (terminal 1, ne pas fermer) et un shell secondaire (terminal 2). Tu peux lancer `python main.py` dans n'importe lequel (chaque appel coûtera quelques fractions de cent OpenAI).
+
+**Pour sortir proprement :**
+- Terminal 2 : `exit` → ferme juste cette session, le conteneur continue de tourner.
+- Terminal 1 : `exit` → le PID 1 (bash) meurt → le conteneur s'arrête.
+- Comme on n'a pas mis `--rm`, supprime le conteneur après : `docker rm hello-openai`.
+
+> [!TIP]
+> Cette méthode est utile si tu veux **plusieurs shells simultanés** dans le même conteneur (ex : un pour `python main.py`, l'autre pour `tail -f /var/log/...`). Sinon, la solution recommandée § [10b.3](#section-10b) (`docker compose run --rm -it app bash`) suffit largement et nettoie automatiquement.
+
+> [!NOTE]
+> Pour une variante encore plus avancée (conteneur en arrière-plan via `--entrypoint sleep infinity`, sans terminal de garde), voir le § [10b.8](#section-10b).
+
+### 10b.3 Solution recommandée : `docker compose run` (override du CMD)
 
 `docker compose run` lance le service en remplaçant la commande par défaut. Tu remplaces `python main.py` par `bash` pour avoir un shell.
 
@@ -441,7 +475,7 @@ Après cette commande, ton prompt change et tu es **à l'intérieur** du contene
 root@a1b2c3d4e5f6:/app#
 ```
 
-### 10b.3 Que faire une fois à l'intérieur
+### 10b.4 Que faire une fois à l'intérieur
 
 ```bash
 # 1. Verifier ou tu es
@@ -470,7 +504,7 @@ python main.py
 
 Tu vois la sortie de `main.py` (banner + 3 personnages historiques résumés avec coût estimé). Et **tu restes dans le conteneur**, prêt à le relancer.
 
-### 10b.4 Relancer plusieurs fois sans recompiler
+### 10b.5 Relancer plusieurs fois sans recompiler
 
 ```bash
 python main.py     # appel 1
@@ -481,7 +515,7 @@ python main.py     # appel 3
 > [!WARNING]
 > **Chaque** `python main.py` consomme du crédit OpenAI (~0.0005 USD avec `gpt-4o-mini`, ~0.015 USD avec `gpt-5`). Évite les boucles infinies par accident.
 
-### 10b.5 Modifier `main.py` depuis l'intérieur
+### 10b.6 Modifier `main.py` depuis l'intérieur
 
 Le `docker-compose.yml` monte ton dossier hôte sur `/app` (`volumes: .:/app`). Donc toute modification de `main.py` sur ton ordinateur est **immédiatement visible** dans le conteneur, sans rebuild.
 
@@ -491,7 +525,7 @@ Le `docker-compose.yml` monte ton dossier hôte sur `/app` (`volumes: .:/app`). 
 python main.py     # voit la nouvelle version directement
 ```
 
-### 10b.6 Sortir du conteneur
+### 10b.7 Sortir du conteneur
 
 ```bash
 exit
@@ -503,7 +537,7 @@ Comme on a passé `--rm`, le conteneur est automatiquement supprimé. Pour véri
 docker ps -a | grep hello-world   # plus rien (ou alors le conteneur de docker compose up s'il existe)
 ```
 
-### 10b.7 Alternative : garder le conteneur vivant pour `docker exec`
+### 10b.8 Alternative avancée : `--entrypoint sleep infinity` (conteneur détaché sans terminal de garde)
 
 Si tu **insistes** pour utiliser `docker exec`, tu dois lancer le conteneur avec une commande qui ne se termine jamais. Méthode propre :
 
@@ -535,16 +569,16 @@ Décomposition des arguments :
 | `infinity` | Argument passé à `sleep` : dort à l'infini |
 
 > [!TIP]
-> Dans 90 % des cas, `docker compose run --rm -it app bash` (méthode 10b.2) est plus simple et plus propre. Utilise `docker exec` si tu veux **plusieurs shells simultanés** dans le même conteneur ou si un service tourne déjà via `docker compose up -d` (cas plus avancé que ce projet ne couvre pas).
+> Dans 90 % des cas, `docker compose run --rm -it app bash` (méthode 10b.3) est plus simple et plus propre. Utilise cette variante (10b.8) seulement si tu veux un conteneur **détaché et vraiment long-running** sans laisser de terminal ouvert. Pour deux shells simultanés tout en gardant un terminal ouvert, vois plutôt 10b.2.
 
-### 10b.8 Mémo : tableau récapitulatif
+### 10b.9 Mémo : tableau récapitulatif
 
 | Commande | Quand l'utiliser | Ce qui se passe |
 |---|---|---|
 | `docker compose up --build` | Tu veux juste voir la sortie de `main.py` une fois | Build l'image, run, `python main.py`, exit |
 | `docker compose up` | Idem mais sans rebuild | Run, `python main.py`, exit |
 | `docker compose run --rm -it app bash` | Tu veux explorer / relancer plusieurs fois | Shell interactif dans le conteneur, `--rm` nettoie en sortant |
-| `docker exec -it <name> bash` | Tu as déjà un conteneur qui tourne (méthode 10b.7) | Ouvre un nouveau shell dans un conteneur existant |
+| `docker exec -it <name> bash` | Tu as déjà un conteneur qui tourne (méthode 10b.2 ou 10b.8) | Ouvre un nouveau shell dans un conteneur existant |
 | `docker compose down` | Tu veux tout nettoyer | Stop + supprime conteneur, réseau, volumes anonymes |
 
 [↑ retour en haut](#top)

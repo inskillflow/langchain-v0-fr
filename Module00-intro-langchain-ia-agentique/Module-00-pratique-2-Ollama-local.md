@@ -370,7 +370,7 @@ docker compose up --build -d
 | `docker compose exec app bash` | Shell dans un conteneur déjà en marche |
 
 > [!TIP]
-> Vérifie qu'Ollama tourne **sur l'hôte** AVANT de lancer Docker (`ollama serve` doit être actif). Tu peux tester depuis l'hôte avec `curl http://localhost:11434/api/tags` et depuis l'intérieur du conteneur avec `curl http://host.docker.internal:11434/api/tags` (cf [§ 10b.3](#section-10b)).
+> Vérifie qu'Ollama tourne **sur l'hôte** AVANT de lancer Docker (`ollama serve` doit être actif). Tu peux tester depuis l'hôte avec `curl http://localhost:11434/api/tags` et depuis l'intérieur du conteneur avec `curl http://host.docker.internal:11434/api/tags` (cf [§ 10b.4](#section-10b)).
 
 [↑ retour en haut](#top)
 
@@ -402,7 +402,41 @@ docker ps -a     # status "Exited (0)"
 > [!NOTE]
 > `docker exec` fonctionne **uniquement** sur un conteneur en cours d'exécution.
 
-### 10b.2 Solution recommandée : `docker compose run` (override du CMD)
+### 10b.2 Solution alternative : utiliser un terminal interactif comme processus de garde
+
+> [!IMPORTANT]
+> `docker exec` exige qu'au moins **un processus tourne déjà** dans le conteneur (le PID 1 doit être vivant). Si le PID 1 meurt, le conteneur s'arrête immédiatement et `docker exec` n'a plus rien où s'attacher.
+
+L'idée : démarrer le conteneur avec un **shell interactif** comme PID 1 (au lieu de `python main.py` qui se termine en 30 secondes). Tant que ce shell reste ouvert dans ton terminal, le conteneur reste vivant, et tu peux ouvrir d'autres shells dedans depuis un autre terminal avec `docker exec`.
+
+**Terminal 1 — démarre le conteneur avec `bash` en PID 1 :**
+
+```bash
+docker compose run --name hello-local -it app bash
+```
+
+Tu obtiens un prompt `root@xxx:/app#`. **Laisse ce terminal ouvert** : ce bash est le processus de garde.
+
+**Terminal 2 — entre dans le même conteneur depuis une autre fenêtre / onglet :**
+
+```bash
+docker exec -it hello-local bash
+```
+
+Maintenant tu as **deux shells** dans le même conteneur : le shell de garde (terminal 1, ne pas fermer) et un shell secondaire (terminal 2). Tu peux lancer `python main.py` dans n'importe lequel.
+
+**Pour sortir proprement :**
+- Terminal 2 : `exit` → ferme juste cette session, le conteneur continue de tourner.
+- Terminal 1 : `exit` → le PID 1 (bash) meurt → le conteneur s'arrête.
+- Comme on n'a pas mis `--rm`, supprime le conteneur après : `docker rm hello-local`.
+
+> [!TIP]
+> Cette méthode est utile si tu veux **plusieurs shells simultanés** dans le même conteneur (ex : un pour `python main.py`, l'autre pour `curl http://host.docker.internal:11434/api/tags`). Sinon, la solution recommandée § [10b.3](#section-10b) (`docker compose run --rm -it app bash`) suffit largement et nettoie automatiquement.
+
+> [!NOTE]
+> Pour une variante encore plus avancée (conteneur en arrière-plan via `--entrypoint sleep infinity`, sans terminal de garde), voir le § [15.7](#section-15) « Méthode D bis » du cheat-sheet.
+
+### 10b.3 Solution recommandée : `docker compose run` (override du CMD)
 
 ```bash
 docker compose run --rm -it app bash
@@ -424,7 +458,7 @@ Après cette commande, tu es dans le conteneur :
 root@a1b2c3d4e5f6:/app#
 ```
 
-### 10b.3 Vérifier qu'Ollama est joignable depuis le conteneur
+### 10b.4 Vérifier qu'Ollama est joignable depuis le conteneur
 
 C'est la **chose la plus utile** quand on débugge la voie Ollama : confirmer que le conteneur arrive bien à parler à Ollama qui tourne sur l'hôte.
 
@@ -449,7 +483,7 @@ python --version                                   # Python 3.12.13
 python -c "import langchain_ollama; print('OK')"   # OK
 ```
 
-### 10b.4 Lancer `main.py` manuellement
+### 10b.5 Lancer `main.py` manuellement
 
 ```bash
 python main.py
@@ -457,7 +491,7 @@ python main.py
 
 Tu vois la banner du Hello World + 3 personnages historiques résumés par Ollama. **Aucun coût** (le LLM tourne sur ton hôte).
 
-### 10b.5 Relancer plusieurs fois
+### 10b.6 Relancer plusieurs fois
 
 ```bash
 python main.py     # appel 1 (gratuit)
@@ -467,7 +501,7 @@ python main.py     # appel 3 (gratuit)
 
 Avec Ollama, tu peux relancer **autant de fois que tu veux** sans aucune facturation. Idéal pour tester rapidement des modifs de prompt.
 
-### 10b.6 Modifier `main.py` depuis l'intérieur
+### 10b.7 Modifier `main.py` depuis l'intérieur
 
 Le volume `volumes: .:/app` dans le compose monte ton dossier hôte sur `/app`. Donc toute modification de `main.py` sur ton ordinateur est **immédiatement visible** dans le conteneur, sans rebuild.
 
@@ -477,7 +511,7 @@ Le volume `volumes: .:/app` dans le compose monte ton dossier hôte sur `/app`. 
 python main.py     # voit la nouvelle version
 ```
 
-### 10b.7 Tester un autre modèle Ollama sans modifier `main.py`
+### 10b.8 Tester un autre modèle Ollama sans modifier `main.py`
 
 ```bash
 # Dans le conteneur, en Python interactif :
@@ -496,7 +530,7 @@ python
 > [!IMPORTANT]
 > Le modèle (`qwen3:1.7b` ici) doit avoir été préalablement téléchargé sur l'hôte avec `ollama pull qwen3:1.7b`.
 
-### 10b.8 Sortir du conteneur
+### 10b.9 Sortir du conteneur
 
 ```bash
 exit
@@ -504,7 +538,7 @@ exit
 
 `--rm` supprime automatiquement le conteneur.
 
-### 10b.9 Mémo : tableau récapitulatif
+### 10b.10 Mémo : tableau récapitulatif
 
 | Commande | Quand l'utiliser | Résultat |
 |---|---|---|
