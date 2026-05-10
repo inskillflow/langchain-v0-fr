@@ -23,6 +23,8 @@
 | 9   | [Tableau comparatif simple](#section-9)                                |
 | 10  | [Glossaire express](#section-10)                                       |
 | 11  | [Conclusion et prochaine étape](#section-11)                           |
+| 12  | [Quiz d'auto-évaluation (50 questions)](./Module-00-quiz-introduction-LLM-LangChain-LangGraph-agent-RAG.md)                 |
+| 13  | [Pratique Hello World (venv + Docker)](./Module-00-pratique-hello-world-venv-Docker.md)              |
 
 ---
 
@@ -822,7 +824,9 @@ Tu devrais maintenant pouvoir résumer en quelques phrases :
 
 Tu es prêt pour ton premier code.
 
-→ **[Module 1 — Hello World LangChain](./01-cours.md)** : ton premier appel LLM avec un `PromptTemplate` et l'opérateur `|`.
+→ Avant de coder : **[Module 0b — Quiz : 50 questions](./Module-00-quiz-introduction-LLM-LangChain-LangGraph-agent-RAG.md)** pour valider ta compréhension.
+→ Pour la pratique pas-à-pas (venv + Docker) : **[Module 0c — Pratique Hello World](./Module-00-pratique-hello-world-venv-Docker.md)**.
+→ Ensuite : **[Module 1 — Hello World LangChain](./01-cours.md)** : ton premier appel LLM avec un `PromptTemplate` et l'opérateur `|`.
 
 > [!NOTE]
 > Reviens consulter ce module 0 chaque fois qu'un terme te paraît flou. C'est ta carte mentale de référence pour tout le cours.
