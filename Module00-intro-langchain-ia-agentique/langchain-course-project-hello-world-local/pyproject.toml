@@ -1,0 +1,13 @@
+[project]
+name = "langchain-hello-world-local"
+version = "0.1.0"
+description = "Hello World LangChain - Version Ollama locale (Pratique 2)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "langchain>=0.3.27",
+    "langchain-ollama>=0.3.6",
+    "python-dotenv>=1.1.1",
+]
