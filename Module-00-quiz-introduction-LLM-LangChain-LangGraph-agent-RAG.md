@@ -1,6 +1,6 @@
 <a id="top"></a>
 
-# Module 0b — Quiz : 50 questions sur l'introduction à LangChain et à l'IA agentique
+# Module 00 — Quiz : 50 questions sur l'introduction à LangChain et à l'IA agentique
 
 > Ce quiz teste ta compréhension de **[00-introduction.md](./00-introduction.md)**. Les 50 questions sont en QCM avec une seule bonne réponse. Lis chaque question, choisis ta réponse, puis déroule **« Réponse »** pour vérifier.
 
